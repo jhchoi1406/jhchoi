@@ -1,0 +1,194 @@
+clear;
+
+%% importing data %%
+
+ncfile = 'GIAF_JRA.cice.h.1979-2020.nc';
+ncdisp(ncfile)
+
+lat0 = ncread(ncfile, 'lat'); 
+lon0 = ncread(ncfile, 'lon'); 
+hi0 = ncread(ncfile, 'hi'); 
+hs0 = ncread(ncfile, 'hs');
+time = ncread(ncfile, 'time');
+aice0 = ncread(ncfile, 'aice'); 
+snow0 = ncread(ncfile, 'snow');
+flwdn0 = ncread(ncfile, 'flwdn');
+snoice0 = ncread(ncfile, 'snoice');
+melts0 = ncread(ncfile, 'melts');
+ice_present0 = ncread(ncfile, 'ice_present');
+evap00 = ncread(ncfile, 'evap');
+uvel0 = ncread(ncfile, 'uvel');
+vvel0 = ncread(ncfile, 'vvel');
+
+LAT1 = 70;
+LON1 = 0; LON2 = 360;
+
+idx_lon = find(lon0>=LON1 & lon0<=LON2);
+idx_lat = find(lat0>=LAT1);
+
+lon = lon0(idx_lon);
+lat = lat0(idx_lat);
+hs = hs0(idx_lon,idx_lat,:);
+aice = aice0(idx_lon,idx_lat,:);
+snow = snow0(idx_lon,idx_lat,:);
+snoice = snoice0(idx_lon,idx_lat,:);
+melts = melts0(idx_lon,idx_lat,:);
+ice_prst = ice_present0(idx_lon,idx_lat,:);
+evap0 = evap00(idx_lon,idx_lat,:);
+uvel = uvel0(idx_lon,idx_lat,:);
+vvel = vvel0(idx_lon,idx_lat,:);
+
+%% finding aice>0.9 %%
+
+idx_a = nan*zeros(size(aice));
+idx_b = nan*zeros(length(lon), length(lat));
+
+for i = 1:length(aice)
+    idx9 = find(aice(:,:,i) >= 0.9);
+    idx_b(idx9) = 1;
+    idx_a(:,:,i) = idx_b;
+end
+
+evap = idx_a.*evap0;
+
+%% weighted average of evaporation %%
+
+ap_cosd = ones(size(evap));
+for i = 1:length(lat)
+    ap_cosd(:,i,:) = cosd(lat(i));  
+end
+
+idxNaN = find(isnan(evap) == 1);
+ap_cosd(idxNaN) = nan;
+
+evap_cosd = evap.*ap_cosd;
+
+avg_evap = squeeze(nansum(nansum(evap_cosd,1),2))./squeeze(nansum(nansum(ap_cosd,1),2));
+
+%% Q1) calculating average monthly evaporation for 1979-2020 %%
+
+for i = 1:length(time)/42
+    evap_mn(i) = nanmean(avg_evap(i:12:i+12*41));
+end
+
+%% plotting %%
+
+mn = 1:12;
+
+figure(1)
+plot(mn,30*evap_mn)
+xlabel('month','fontsize',13)
+ylabel('evaporation (cm/month)','fontsize',13)
+title('average monthly evaporation for 1979-2020','fontsize',15)
+xticks(1:1:12)
+yticks(-1:0.15:0.5) 
+xlim([0 13])
+grid on;
+   
+%% Q2) calculating interannual variation of evaporation on jul, aug, feb %%
+
+for i = 1:(length(time)/12)-1
+    annual_evap(i) = sum(avg_evap(7+12*(i-1))+avg_evap(8+12*(i-1))+avg_evap(14+12*(i-1)))/3;
+end
+
+%% plotting %%
+
+yr = 1980:1:2020;
+
+figure(2)
+plot(yr,30*annual_evap)
+xlabel('year','fontsize',13)
+ylabel('evaporation (cm/month)','fontsize',13)
+title('interannual variation of evaporation on Jul, Aug, Feb','fontsize',15)
+xlim([1979 2021])
+ylim([-0.075 0.325])
+grid on;
+
+%% Q3) calculating correlation between wind and evaporation on jul, aug, feb %%
+
+clear ap_cosd
+
+ap_cosd = ones(size(uvel));
+for i = 1:length(lat)
+    ap_cosd(:,i,:) = cosd(lat(i));  
+end
+
+idxNaN = find(isnan(uvel) == 1);
+ap_cosd(idxNaN) = nan;
+
+uvel_cosd = uvel.*ap_cosd;
+
+clear ap_cosd
+
+ap_cosd = ones(size(vvel));
+for i = 1:length(lat)
+    ap_cosd(:,i,:) = cosd(lat(i));  
+end
+
+idxNaN = find(isnan(vvel) == 1);
+ap_cosd(idxNaN) = nan;
+
+vvel_cosd = vvel.*ap_cosd;
+
+ice_v = sqrt(uvel_cosd.^2+vvel_cosd.^2);
+
+avg_icev = squeeze(nansum(nansum(ice_v,1),2))./squeeze(nansum(nansum(ap_cosd,1),2));
+
+for i = 1:(length(time)/12)-1
+    annual_icev(i) = sum(avg_icev(7+12*(i-1))+avg_icev(8+12*(i-1))+avg_icev(14+12*(i-1)))/3;
+end
+
+corrcoef(annual_evap,60*60*24*annual_icev)
+
+%% Q4) showing the area where the most evaporation occurs by using m-map %%
+
+clear evap_782
+for i = 1:(length(time)/12)-1
+    evap_782(:,:,i) = sum(evap_cosd(:,:,7+12*(i-1))+evap_cosd(:,:,8+12*(i-1))+evap_cosd(:,:,14+12*(i-1)),3)/3;
+end
+
+evap_m = nanmean(evap_782,3);
+
+cmin = -0.1;
+cmax = 0.1;
+
+mm = [-0.5:0.01:0.5];
+
+tmp = jet(23);
+jet1 = tmp;
+jet1(1:1,:) = 1;
+MYMAPs = jet1;
+
+m_proj('stereographic', 'lat', 90, 'radius', 25);
+
+figure(3)
+m_contourf(lon, lat, 30*evap_m', mm); hold on;
+caxis([cmin cmax]);
+m_grid('linewi',2,'tickdir','out');
+
+axis square
+axis off
+shading flat
+
+colormap(MYMAPs);
+colorbar('ytick', 2*mm, 'fontsize', 14)
+m_coast('patch', [0.7 0.7 0.7], 'edgecolor', 'k'); hold off;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
