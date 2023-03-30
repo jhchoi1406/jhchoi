@@ -160,55 +160,6 @@ for j = 1979:1:2020
     yy=[yy; sic_y];
 end
 
-
-
-%% calculating annual average concentration %%
-
-%1-1
-
-% cc = [];
-% for i = 1979:1:2020
-%     conc = sic_up(yearx == i);
-%     meanconc = nanmean(conc);
-%     cc = [cc; meanconc];
-% end
-    
-
-% 1-2
-
-% x_day(1) = 1 ;
-% y_day(1) = 365 ;
-% 
-% for i = 2:42
-%     x_day(i) = x_day(i-1) + 365 ; 
-%     if (mod(i,4) == 3) 
-%         x_day(i) = x_day(i-1) + 366 ;
-%     end
-% end
-% 
-% for i =2:42
-%     if (i == 42)
-%         y_day(i) = length(sic(time)) ;
-%     else 
-%         y_day(i) = x_day(i+1) - 1 ;
-%     end 
-% end
-% 
-% cc = [];
-% for i = 1:15341
-%     cc_day = sic( (7920*(i-1)+1) : (7920*i) );
-%     mean_cc_day = nanmean(cc_day);
-%     cc=[cc; mean_cc_day];
-% end
-% 
-% tt_c = [];
-% for i = 1:42 
-%    c_day = nanmean(cc( x_day(i) : y_day(i) )) ;
-%    tt_c = [tt_c; c_day];
-% end
-
-%% using yyaxis %% 
-
 yyaxis left
 
 plot(yeary, tt)
@@ -218,5 +169,4 @@ yyaxis right
 plot(yeary, yy)
 
 
-% 해빙 속력 / 바람 속력 * 100 = 마찰력 (바람에 대한 민감도) 
-% 바람이 너무 약하면 안되고 1m/s 이상의 것만 골라서 연도별로 평균 내서 비율을 그려본다.
+
